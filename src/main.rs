@@ -22,6 +22,7 @@ struct Args {
 
 fn main() -> io::Result<()> {
     let args = Args::parse();
+    let start_time = std::time::Instant::now();
 
 
     let re = Regex::new(&args.pattern).expect("Invalid regex pattern");
@@ -31,16 +32,21 @@ fn main() -> io::Result<()> {
     let reader = io::BufReader::new(file);
 
 
-    // Read all lines into a vector so Rayon can parallelize them
     let lines: Vec<String> = reader.lines().collect::<Result<Vec<String>, _>>()?;
 
 
-    // Search concurrently across all CPU cores using Rayon
-    lines.par_iter().enumerate().for_each(|(index, line)| {
-        if re.is_match(line) {
+    let matches_found = lines
+        .par_iter()
+        .enumerate()
+        .filter(|(_, line)| re.is_match(line))
+        .inspect(|(index, line)| {
             println!("{}: {}", index + 1, line);
-        }
-    });
+    })
+    .count();
+
+
+    let duration = start_time.elapsed();
+    eprintln!("\nFound {} matches in {:?}", matches_found, duration);
 
 
     Ok(())
